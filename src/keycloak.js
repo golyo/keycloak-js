@@ -31,6 +31,8 @@ function Keycloak (config) {
     var adapter;
     var refreshQueue = [];
     var callbackStorage;
+    var requestHeader;
+    var logger;
 
     var loginIframe = {
         enable: true,
@@ -74,6 +76,9 @@ function Keycloak (config) {
         }
 
         if (initOptions) {
+            requestHeader = initOptions.requestHeader;
+            logger = initOptions.logger;
+
             if (typeof initOptions.useNonce !== 'undefined') {
                 useNonce = initOptions.useNonce;
             }
@@ -540,12 +545,22 @@ function Keycloak (config) {
         return !!access && access.roles.indexOf(role) >= 0;
     }
 
+    kc.appendRequestHeader = function(url, request) {
+        if (requestHeader) {
+            for (const [key, value] of Object.entries(requestHeader)) {
+                logger.info(`+++set Request header on keycloak to ${url} with ${key}: ${value}`);
+                request.setRequestHeader(key, value);
+            }
+        }
+    }
+
     kc.loadUserProfile = function() {
         var url = getRealmUrl() + '/account';
         var req = new XMLHttpRequest();
         req.open('GET', url, true);
         req.setRequestHeader('Accept', 'application/json');
         req.setRequestHeader('Authorization', 'bearer ' + kc.token);
+        kc.appendRequestHeader(url, req);
 
         var promise = createPromise();
 
@@ -571,6 +586,7 @@ function Keycloak (config) {
         req.open('GET', url, true);
         req.setRequestHeader('Accept', 'application/json');
         req.setRequestHeader('Authorization', 'bearer ' + kc.token);
+        kc.appendRequestHeader(url, req);
 
         var promise = createPromise();
 
@@ -642,6 +658,7 @@ function Keycloak (config) {
                     var req = new XMLHttpRequest();
                     req.open('POST', url, true);
                     req.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+                    kc.appendRequestHeader(url, req);
                     req.withCredentials = true;
 
                     params += '&client_id=' + encodeURIComponent(kc.clientId);
@@ -758,6 +775,7 @@ function Keycloak (config) {
             var req = new XMLHttpRequest();
             req.open('POST', url, true);
             req.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+            kc.appendRequestHeader(url, req);
 
             params += '&client_id=' + encodeURIComponent(kc.clientId);
             params += '&redirect_uri=' + oauth.redirectUri;
@@ -887,6 +905,7 @@ function Keycloak (config) {
             var req = new XMLHttpRequest();
             req.open('GET', configUrl, true);
             req.setRequestHeader('Accept', 'application/json');
+            kc.appendRequestHeader(configUrl, req);
 
             req.onreadystatechange = function () {
                 if (req.readyState == 4) {
@@ -942,6 +961,7 @@ function Keycloak (config) {
                     var req = new XMLHttpRequest();
                     req.open('GET', oidcProviderConfigUrl, true);
                     req.setRequestHeader('Accept', 'application/json');
+                    kc.appendRequestHeader(configUrl, req);
 
                     req.onreadystatechange = function () {
                         if (req.readyState == 4) {
